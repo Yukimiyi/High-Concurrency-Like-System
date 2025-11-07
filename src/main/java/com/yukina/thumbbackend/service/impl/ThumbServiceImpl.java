@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yukina.thumbbackend.constant.ThumbConstant;
 import com.yukina.thumbbackend.exception.ErrorCode;
 import com.yukina.thumbbackend.exception.ThrowUtils;
+import com.yukina.thumbbackend.manager.cache.CacheManager;
 import com.yukina.thumbbackend.model.dto.thumb.DoThumbRequest;
 import com.yukina.thumbbackend.model.entity.Blog;
 import com.yukina.thumbbackend.model.entity.Thumb;
@@ -14,6 +15,7 @@ import com.yukina.thumbbackend.mapper.ThumbMapper;
 import com.yukina.thumbbackend.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -23,7 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @description 针对表【thumb】的数据库操作Service实现
  * @createDate 2025-10-15 21:46:30
  */
-//@Service
+@Service("thumbService")
 public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
         implements ThumbService {
 
@@ -38,6 +40,8 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
 
     @Resource
     private RedisTemplate redisTemplate;
+    @Autowired
+    private CacheManager cacheManager;
 
     @Override
     public Boolean doThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {
@@ -70,7 +74,11 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                 thumb.setBlogId(blogId);
                 boolean success = update && this.save(thumb);
                 if (success) {
-                    redisTemplate.opsForHash().put(ThumbConstant.USER_THUMB_KEY_PREFIX + userId.toString(), blogId.toString(), thumb.getId());
+                    String hashKey = ThumbConstant.USER_THUMB_KEY_PREFIX + userId;
+                    String fieldKey = blogId.toString();
+                    Long realThumbId = thumb.getId();
+                    redisTemplate.opsForHash().put(hashKey, fieldKey, realThumbId);
+                    cacheManager.putIfPresent(ThumbConstant.USER_THUMB_KEY_PREFIX + userId, fieldKey, realThumbId);
                 }
                 return success;
             });
@@ -104,7 +112,10 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                         .update();
                 boolean success = update && this.removeById(thumbId);
                 if (success) {
-                    redisTemplate.opsForHash().delete(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString(), blogId.toString());
+                    String hashKey = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId();
+                    String fieldKey = blogId.toString();
+                    redisTemplate.opsForHash().delete(hashKey, fieldKey);
+                    cacheManager.putIfPresent(hashKey, fieldKey, ThumbConstant.UN_THUMB_CONSTANT);
                 }
                 return success;
             });
@@ -113,7 +124,13 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
 
     @Override
     public Boolean hasThumb(Long blogId, Long userId) {
-        return redisTemplate.opsForHash().hasKey(ThumbConstant.USER_THUMB_KEY_PREFIX + userId.toString(), blogId.toString());
+//        return redisTemplate.opsForHash().hasKey(ThumbConstant.USER_THUMB_KEY_PREFIX + userId.toString(), blogId.toString());
+        Object thumbIdObj = cacheManager.get(ThumbConstant.USER_THUMB_KEY_PREFIX + userId, blogId.toString());
+        if (thumbIdObj == null) {
+            return false;
+        }
+        Long thumbId = (Long) thumbIdObj;
+        return !thumbId.equals(ThumbConstant.UN_THUMB_CONSTANT);
     }
 }
 

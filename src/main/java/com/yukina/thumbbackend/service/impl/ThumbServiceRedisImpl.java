@@ -10,7 +10,6 @@ import com.yukina.thumbbackend.exception.ErrorCode;
 import com.yukina.thumbbackend.exception.ThrowUtils;
 import com.yukina.thumbbackend.mapper.ThumbMapper;
 import com.yukina.thumbbackend.model.dto.thumb.DoThumbRequest;
-import com.yukina.thumbbackend.model.entity.Blog;
 import com.yukina.thumbbackend.model.entity.Thumb;
 import com.yukina.thumbbackend.model.entity.User;
 import com.yukina.thumbbackend.model.enums.LuaStatusEnum;
@@ -31,7 +30,7 @@ import java.util.Arrays;
  * @description 针对表【thumb】的数据库操作Service实现
  * @createDate 2025-10-15 21:46:30
  */
-@Service("thumbService")
+@Service("thumbServiceRedis")
 public class ThumbServiceRedisImpl extends ServiceImpl<ThumbMapper, Thumb>
         implements ThumbService {
 
