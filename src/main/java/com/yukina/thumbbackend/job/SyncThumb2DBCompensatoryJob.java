@@ -20,7 +20,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-@Component
+//@Component
 @Slf4j
 public class SyncThumb2DBCompensatoryJob {
 
